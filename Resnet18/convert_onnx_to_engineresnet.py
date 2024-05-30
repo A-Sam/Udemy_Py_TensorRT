@@ -18,7 +18,7 @@ class TensorRTConversion:
         precision : 16 float and half precision
         Inference mode: Dynamic Batch [1, 10, 20]
     '''
-    def __init__(self, path_to_onnx, path_to_engine, max_workspace_size=1 << 30, half_precision=False):
+    def __init__(self, path_to_onnx, path_to_engine, max_workspace_size=(1 << 30), half_precision=False):
 
         self.TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
 
@@ -43,7 +43,7 @@ class TensorRTConversion:
         builder = trt.Builder(self.TRT_LOGGER )
         config = builder.create_builder_config()
 
-        config.max_workspace_size = self.max_workspace_size
+        # config.max_workspace_siz = self.max_workspace_size
 
         explicit_batch = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
 
@@ -72,16 +72,24 @@ class TensorRTConversion:
         if builder.platform_has_fast_fp16:
             config.set_flag(trt.BuilderFlag.FP16)
 
-        engine = builder.build_engine(network,config)
-
+        # NOTE Deprecated
+        # engine = builder.build_engine(network, config)
+    
+        # Build and serialize the network
+        serialized_engine = builder.build_serialized_network(network, config)
+        
+        # Deserialize the serialized engine to create an ICudaEngine
+        runtime = trt.Runtime(self.TRT_LOGGER)
+        engine = runtime.deserialize_cuda_engine(serialized_engine)
+    
         with open(self.path_to_engine, "wb") as f_engine:
-            f_engine.write(engine.serialize())       
+            f_engine.write(serialized_engine)       
 
         print("Successfully Converted ONNX to Tensorrt Dynamic Engine")
 
         print(f'Serialized engine saved in engine path: {self.path_to_engine}')
 
 # INIT Class
-convert = TensorRTConversion('/tensorfl_vision/Resnet18/resnet18.onnx', '/tensorfl_vision/Resnet18/resnet.engine')
+convert = TensorRTConversion('/tensorfl_vision/Udemy_Py_TensorRT/Resnet18/resnet18.onnx', '/tensorfl_vision/Udemy_Py_TensorRT/Resnet18/resnet.engine')
 # Call Class method
 convert.convert()
